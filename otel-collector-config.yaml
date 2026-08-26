@@ -1,0 +1,49 @@
+# ─────────────────────────────────────────────────────────────
+# OpenTelemetry Collector config
+# Run locally:  docker run --rm -p 4317:4317 -p 4318:4318 \
+#   -v $(pwd)/otel-collector-config.yaml:/etc/otelcol/config.yaml \
+#   otel/opentelemetry-collector-contrib:latest
+# ─────────────────────────────────────────────────────────────
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  batch:
+    timeout: 5s
+  resource:
+    attributes:
+      - key: deployment.environment
+        value: "local-dev"
+        action: upsert
+
+exporters:
+  # ── Dynatrace OTLP endpoint ──────────────────────────────
+  # Replace <DT_ENVIRONMENT_ID> and set DT_API_TOKEN env var.
+  otlphttp/dynatrace:
+    endpoint: https://<DT_ENVIRONMENT_ID>.live.dynatrace.com/api/v2/otlp
+    headers:
+      Authorization: "Api-Token ${DT_API_TOKEN}"
+
+  # ── Debug: print to collector stdout (handy for dev) ─────
+  debug:
+    verbosity: detailed
+
+service:
+  pipelines:
+    traces:
+      receivers:  [otlp]
+      processors: [batch, resource]
+      exporters:  [otlphttp/dynatrace, debug]
+    metrics:
+      receivers:  [otlp]
+      processors: [batch, resource]
+      exporters:  [otlphttp/dynatrace, debug]
+    logs:
+      receivers:  [otlp]
+      processors: [batch, resource]
+      exporters:  [otlphttp/dynatrace, debug]
